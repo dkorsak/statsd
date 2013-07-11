@@ -1,0 +1,11 @@
+{% extends admin.getTemplate('base_list_field') %}
+
+{% block field %}
+{% spaceless %}
+    {% if value %}
+        {{ value|format_date() }}
+    {% else %}
+        &nbsp;
+    {% endif %}
+{% endspaceless %}
+{% endblock %}

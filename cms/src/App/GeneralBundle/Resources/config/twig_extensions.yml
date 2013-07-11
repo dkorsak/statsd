@@ -1,0 +1,12 @@
+# Definition of all twig services
+services:
+
+    app_general.twig.extension.format_extension:
+        class: App\GeneralBundle\Twig\Extension\FormatExtension
+        tags:
+            - { name: "twig.extension"}
+
+    app_general.twig.extension.html_extension:
+        class: App\GeneralBundle\Twig\Extension\HtmlExtension
+        tags:
+            - { name: "twig.extension"}

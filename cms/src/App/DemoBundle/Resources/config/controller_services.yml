@@ -1,0 +1,27 @@
+#definition of all sonata admin controllers
+services:
+
+    app_demo.admin.article_category_admin:
+        class: App\DemoBundle\Admin\ArticleCategoryAdmin
+        tags:
+            - { name: sonata.admin, manager_type: orm, group: Demo, label: Article categories }
+        arguments: [null, App\DemoBundle\Entity\ArticleCategory, AppDemoBundle:ArticleCategoryAdmin]
+        calls:
+            - [ setTranslationDomain, ["article_category"] ]
+
+    app_demo.admin.article_tag_admin:
+        class: App\DemoBundle\Admin\ArticleTagAdmin
+        tags:
+            - { name: sonata.admin, manager_type: orm, group: Demo, label: Article tags }
+        arguments: [null, App\DemoBundle\Entity\ArticleTag, AppDemoBundle:ArticleTagAdmin]
+        calls:
+            - [ setTranslationDomain, ["article_tag"] ]
+
+    app_demo.admin.article_admin:
+        class: App\DemoBundle\Admin\ArticleAdmin
+        tags:
+            - { name: sonata.admin, manager_type: orm, group: Demo, label: Articles }
+        arguments: [null, App\DemoBundle\Entity\Article, AppDemoBundle:ArticleAdmin]
+        calls:
+            - [ setTranslationDomain, ["article"] ]
+            - [ setImageCacheManager, [@liip_imagine.cache.manager] ]

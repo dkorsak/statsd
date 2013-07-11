@@ -1,0 +1,17 @@
+admin_user:
+    email: "superadmin@admin.com"
+    username: "superadmin@admin.com"
+    plain_password: admin
+    firstname: System
+    lastname: Admin
+    enabled: 1
+    single_role: ROLE_SUPER_ADMIN # User::ROLE_SUPER_ADMIN
+
+user:
+    email: "admin@admin.com"
+    username: "admin@admin.com"
+    plain_password: admin
+    firstname: System
+    lastname: User
+    enabled: 1
+    single_role: ROLE_ADMIN # User::ROLE_ADMIN

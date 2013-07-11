@@ -1,0 +1,5 @@
+GROUP_ADMINISTRATORS:
+    name: "Administrators"
+    roles:
+        - ROLE_SUPER_ADMIN #User::ROLE_SUPER_ADMIN
+        - ROLE_ADMIN #User::ROLE_ADMIN

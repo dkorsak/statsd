@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="Content Management System" default="" basedir=".">
+    <property name="java.lib" value="java/lib"/>
+    <property name="target" value=""/>
+    <property name="bundle" value=""/>
+    <property name="env" value="dev"/>
+    <property name="debug" value="true"/>
+    <property name="selenium.jar" value="${java.lib}/selenium-server-standalone-2.31.0.jar"/>
+
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties">
+        <classpath>
+            <pathelement location="${java.lib}/ant-contrib-1.0b3.jar"/>
+        </classpath>
+    </taskdef>
+
+    <macrodef name="clear.file.cache">
+        <attribute name="destination" default="cms"/>
+        <attribute name="env" default="${env}"/>
+        <sequential>
+            <echo>ANT DEBUG: Cleaning file cache for destination @{destination} and environment @{env}</echo>
+            <exec executable="php" dir="@{destination}"><arg line="app/console cache:clear --env=@{env} --no-debug"/></exec>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="syncfiles">
+        <attribute name="destination" default="build"/>
+        <attribute name="source" default="cms"/>
+        <sequential>
+            <sync todir="@{destination}" overwrite="false" failonerror="false" includeemptydirs="true">
+                <fileset dir="@{source}">
+                    <exclude name="build.xml"/>
+                    <exclude name=".git"/>
+                    <exclude name="app/config/parameters*"/>
+                    <exclude name="app/phpunit.xml"/>
+                    <exclude name="app/phpdoc.xml"/>
+                    <exclude name="app/check.php"/>
+                    <exclude name="app/cache/**"/>
+                    <exclude name="bin/**"/>
+                    <exclude name="app/logs/**"/>
+                    <exclude name="web/bundles/**"/>
+                    <exclude name="web/uploads/**"/>
+                    <exclude name="web/app_dev.php"/>
+                    <exclude name="web/app_test.php"/>
+                    <exclude name="web/config.php"/>
+                    <exclude name="web/css/**"/>
+                    <exclude name="web/js/**"/>
+                    <exclude name="behat*.*"/>
+                    <exclude name="composer*.*"/>
+                    <exclude name="*.phar"/>
+                    <exclude name="deploy.sh"/>
+                    <exclude name="behat.sh"/>
+                    <exclude name=".php_cs"/>
+                    <exclude name="rsync_exclude.txt"/>
+                    <exclude name="src/App/**/Features/**"/>
+                    <exclude name="src/App/**/Tests/**"/>
+                    <exclude name="vendor/liip/imagine-bundle/Liip/ImagineBundle/Tests/Fixtures/assets/**"/>
+                </fileset>
+                <preserveInTarget>
+                    <include name="app/cache/prod/**"/>
+                    <include name="app/logs/**"/>
+                    <include name="web/uploads/**"/>
+                    <include name="app/config/parameters.ini"/>
+                    <include name="web/bundles/**"/>
+                    <include name="web/css/**"/>
+                    <include name="web/js/**"/>
+                </preserveInTarget>
+            </sync>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="build.db">
+        <attribute name="env" default="${env}"/>
+        <attribute name="destination" default="cms"/>
+        <attribute name="fixtures" default="true"/>
+        <sequential>
+            <echo>AND DEBUG: Building database for environment @{env}</echo>
+            <exec executable="php" dir="@{destination}"><arg line="app/console doctrine:database:drop --env=@{env} --force"/></exec>
+            <exec executable="php" dir="@{destination}"><arg line="app/console doctrine:database:create --env=@{env}"/></exec>
+            <exec executable="php" dir="@{destination}"><arg line="app/console doctrine:schema:create --env=@{env}"/></exec>
+            <exec executable="php" dir="@{destination}"><arg line="app/console app:create-pdo-session-table"/></exec>
+            <if>
+                <equals arg1="@{fixtures}" arg2="true"/>
+                <then>
+                    <echo>AND DEBUG: Loading fixtures</echo>
+                    <exec executable="php" dir="@{destination}"><arg line="app/console doctrine:fixtures:load --env=@{env}  --no-interaction"/></exec>
+                </then>
+            </if>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="cc">
+        <attribute name="destination" default="cms"/>
+        <attribute name="env" default="${env}"/>
+        <attribute name="symlink" default=""/>
+        <attribute name="execute.assets.dump" default="true"/>
+        <attribute name="execute.clear.cache.file" default="true"/>
+        <attribute name="execute.clear.sonata.cache" default="true"/>
+        <attribute name="execute.clear.doctrine.cache" default="true"/>
+        <sequential>
+            <if>
+                <equals arg1="@{execute.clear.sonata.cache}" arg2="true"/>
+                <then>
+                    <echo>ANT DEBUG: Cleaning sonata cache</echo>
+                    <exec executable="php" dir="@{destination}"><arg line="app/console sonata:cache:flush-all"/></exec>
+                </then>
+            </if>
+            <if>
+                <equals arg1="@{execute.clear.doctrine.cache}" arg2="true"/>
+                <then>
+                    <echo>ANT DEBUG: Cleaning doctrine cache</echo>
+                    <exec executable="php" dir="@{destination}"><arg line="app/console doctrine:cache:clear-metadata"/></exec>
+                    <exec executable="php" dir="@{destination}"><arg line="app/console doctrine:cache:clear-query"/></exec>
+                    <exec executable="php" dir="@{destination}"><arg line="app/console doctrine:cache:clear-result"/></exec>
+                </then>
+            </if>
+            <if>
+                <equals arg1="@{execute.clear.cache.file}" arg2="true"/>
+                <then>
+                    <clear.file.cache destination="@{destination}" env="@{env}"/>
+                </then>
+            </if>
+            <echo>ANT DEBUG: Creating FOS js routing file</echo>
+            <exec executable="php" dir="@{destination}"><arg line="app/console fos:js-routing:dump"/></exec>
+            <if>
+                <equals arg1="@{execute.assets.dump}" arg2="true"/>
+                <then>
+                    <echo>ANT DEBUG: Installing assets</echo>
+                    <exec executable="php" dir="@{destination}"><arg line="app/console assets:install web @{symlink}"/></exec>
+                    <echo>ANT DEBUG: Dumping @{env} assets</echo>
+                    <exec executable="php" dir="@{destination}"><arg line="app/console assetic:dump --env=@{env} --no-debug"/></exec>
+                </then>
+            </if>
+            <create.web.dirs destination="@{destination}"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="phpunit" description="PHPUnit and Clover PHP">
+        <attribute name="destination" default="cms"/>
+        <sequential>
+            <clear.file.cache destination="@{destination}" env="test"/>
+            <echo>ANT DEBUG: Executing PHPUnit tests</echo>
+            <exec executable="phpunit" dir="@{destination}">
+                <arg line="-v -c app/phpunit.xml --coverage-html '${basedir}/test_result/coverage' --coverage-clover '${basedir}/test_result/clover.xml' --stderr --log-junit '${basedir}/test_result/phpunit.xml'"/>
+            </exec>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="phpcs" description="PHP_CodeSniffer">
+        <attribute name="destination" default="cms"/>
+        <attribute name="debug" default="true"/>
+        <sequential>
+            <echo>ANT DEBUG: Creating coding standards report</echo>
+            <if>
+                <equals arg1="@{debug}" arg2="true"/>
+                <then>
+                    <exec dir="@{destination}" executable="phpcs" failonerror="false">
+                        <arg line="-s --standard=${basedir}/coding_standards/PSR2 --report=full ./src"/>
+                    </exec>
+                </then>
+                <else>
+                    <exec dir="@{destination}" executable="phpcs" failonerror="false">
+                        <arg line="-s --standard=${basedir}/coding_standards/PSR2 --report=checkstyle --report-file=${basedir}/test_result/checkstyle.xml ./src"/>
+                    </exec>
+                </else>
+            </if>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="phpmd" description="Project Mess Detection">
+        <attribute name="destination" default="cms"/>
+        <attribute name="debug" default="true"/>
+        <sequential>
+            <echo>ANT DEBUG: Creating PHPMD report</echo>
+            <if>
+                <equals arg1="@{debug}" arg2="true"/>
+                <then>
+                    <exec executable="phpmd" dir="@{destination}/src" failonerror="off">
+                        <arg line=". xml codesize,unusedcode,design --exclude /App/BackendBundle/Resources,/App/FrontendBundle/Resources,/App/GeneralBundle/Resources"/>
+                    </exec>
+                </then>
+                <else>
+                    <exec executable="phpmd" dir="@{destination}/src" failonerror="off">
+                        <arg line=". xml codesize,unusedcode,design --reportfile '${basedir}/test_result/pmd.xml' --exclude /App/BackendBundle/Resources,/App/FrontendBundle/Resources,/App/GeneralBundle/Resources"/>
+                    </exec>
+                </else>
+            </if>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="phpcpd" description="Find duplicate code using PHPCPD">
+        <attribute name="destination" default="cms"/>
+        <attribute name="debug" default="true"/>
+        <sequential>
+            <echo>ANT DEBUG: Creating copy/paste detector PHPCPD report</echo>
+            <if>
+                <equals arg1="@{debug}" arg2="true"/>
+                <then>
+                    <exec executable="phpcpd" dir="@{destination}" failonerror="off">
+                        <arg value="--min-lines"/>
+                        <arg value="5"/>
+                        <arg value="--exclude"/>
+                        <arg value="App/FrontendBundle/Resources"/>
+                        <arg value="--exclude"/>
+                        <arg value="App/BackendBundle/Resources"/>
+                        <arg value="--exclude"/>
+                        <arg value="App/GeneralBundle/Resources"/>
+                        <arg value="--log-pmd"/>
+                        <arg value="${basedir}/test_result/pmd-cpd.xml"/>
+                        <arg value="./src"/>
+                    </exec>
+                </then>
+                <else>
+                    <exec executable="phpcpd" dir="@{destination}" failonerror="off">
+                        <arg value="--min-lines"/>
+                        <arg value="5"/>
+                        <arg value="--exclude"/>
+                        <arg value="App/BackendBundle/Resources"/>
+                        <arg value="--exclude"/>
+                        <arg value="App/FrontendBundle/Resources"/>
+                        <arg value="--exclude"/>
+                        <arg value="App/GeneralBundle/Resources"/>
+                        <arg value="--log-pmd"/>
+                        <arg value="${basedir}/test_result/pmd-cpd.xml"/>
+                        <arg value="--quiet"/>
+                        <arg value="./src"/>
+                    </exec>
+                </else>
+            </if>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="pdepend" description="Calculate software metrics using PHP_Depend">
+        <attribute name="destination" default="cms"/>
+        <sequential>
+            <echo>ANT DEBUG: Creating software metrics report using PHP_Depend</echo>
+            <exec executable="pdepend" dir="@{destination}" failonerror="off">
+                <arg value="--jdepend-xml=${basedir}/test_result/pdepend-jdepend.xml"/>
+                <arg value="--jdepend-chart=${basedir}/test_result/pdepend-dependencies.svg"/>
+                <arg value="--overview-pyramid=${basedir}/test_result/pdepend-overview-pyramid.svg"/>
+                <arg value="--ignore=App/BackendBundle/Resources/public,App/FrontendBundle/Resources/public"/>
+                <arg value="./src"/>
+            </exec>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="phploc" description="Measure project size using PHPLOC">
+        <attribute name="destination" default="cms"/>
+        <sequential>
+            <echo>ANT DEBUG: Creating measure project size using report</echo>
+            <exec executable="phploc" dir="@{destination}" failonerror="off">
+                <arg value="--log-csv"/>
+                <arg value="${basedir}/test_result/phploc.csv"/>
+                <arg value="--exclude"/>
+                <arg value="App/BackendBundle/Resources"/>
+                <arg value="--exclude"/>
+                <arg value="App/FrontendBundle/Resources"/>
+                <arg value="--exclude"/>
+                <arg value="App/GeneralBundle/Resources"/>
+                <arg value="./src"/>
+            </exec>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="phpcb" description="Aggregate tool output with PHP_CodeBrowser">
+        <attribute name="destination" default="cms"/>
+        <sequential>
+            <echo>ANT DEBUG: Aggregating output with PHP_CodeBrowser</echo>
+            <exec executable="phpcb" dir="@{destination}" failonerror="off">
+                <arg line="--log ${basedir}/test_result --source ./src --output ${basedir}/test_result/code-browser --ignore ./src/App/BackendBundle/Resources,./src/App/FrontendBundle/Resources,./src/App/GeneralBundle/Resources"/>
+            </exec>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="codereport" description="Aggregate tool output with PHP_CodeBrowser">
+        <attribute name="destination" default="cms"/>
+        <sequential>
+            <echo>ANT DEBUG: Generating code report</echo>
+            <phpcs debug="false" destination="@{destination}"/>
+            <phpmd debug="false" destination="@{destination}"/>
+            <phpcpd debug="false" destination="@{destination}"/>
+            <pdepend destination="@{destination}"/>
+            <phploc destination="@{destination}"/>
+            <phpcb destination="@{destination}"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="build">
+        <attribute name="destination" default="cms"/>
+        <attribute name="env" default="${env}"/>
+        <attribute name="symlink" default=""/>
+        <sequential>
+            <cc symlink="@{symlink}" destination="@{destination}" env="@{env}" execute.assets.dump="${build.assets.dump}" execute.clear.cache.file="${build.clear.cache.file}" execute.clear.sonata.cache="${build.clear.sonata.cache}" execute.clear.doctrine.cache="${build.clear.doctrine.cache}"/>
+            <if>
+                <equals arg1="${build.build.db}" arg2="true"/>
+                <then>
+                    <build.db destination="@{destination}" env="@{env}"/>
+                </then>
+            </if>
+            <if>
+                <equals arg1="${build.doctrine.migrations}" arg2="true"/>
+                <then>
+                    <echo>ANT DEBUG: Migrating database</echo>
+                    <exec executable="php" dir="@{destination}"><arg line="app/console doctrine:migrations:migrate --no-interaction"/></exec>
+                </then>
+            </if>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="deploy">
+        <attribute name="destination" default="build"/>
+        <sequential>
+            <if>
+                <equals arg1="${local-build}" arg2="false"/>
+                <then>
+                    <copy preservelastmodified="true" overwrite="true" file="${basedir}/cms/app/config/parameters.${target}.ini" tofile="${basedir}/cms/app/config/parameters.ini"/>
+                </then>
+            </if>
+            <echo>ANT DEBUG: Syncing cms into @{destination} directory</echo>
+            <if>
+                <not>
+                    <available file="@{destination}"/>
+                </not>
+                <then>
+                    <mkdir dir="@{destination}"/>
+                </then>
+            </if>
+            <syncfiles destination="@{destination}"/>
+            <chmod dir="@{destination}/app/console" perm="+x"/>
+            <echo>AND DEBUG: Copying ${parameters-file-path} file</echo>
+            <copy preservelastmodified="true" overwrite="true" file="${parameters-file-path}" tofile="@{destination}/app/config/parameters.ini"/>
+            <build destination="@{destination}" env="prod"/>
+            <if>
+                <equals arg1="${deploy.rsync}" arg2="true"/>
+                <then>
+                    <echo>AND DEBUG: Preparing deploy.sh file</echo>
+                    <copy file="${basedir}/cms/rsync_exclude.txt" tofile="@{destination}/rsync_exclude.txt"/>
+                    <copy file="${basedir}/cms/deploy.sh" tofile="@{destination}/deploy.sh">
+                        <filterset filtersfile="${parameters-file-path}"/>
+                    </copy>
+                    <if>
+                        <equals arg1="${deploy.rsync.execute}" arg2="true"/>
+                        <then>
+                            <echo>AND DEBUG: Deploying project into ${deploy.host} server</echo>
+                            <exec executable="/bin/bash" dir="@{destination}"><arg line="deploy.sh run"/></exec>
+                        </then>
+                    </if>
+                </then>
+            </if>
+            <if>
+                <equals arg1="${deploy.execute.phpunit}" arg2="true"/>
+                <then>
+                    <phpunit/>
+                </then>
+            </if>
+            <if>
+                <equals arg1="${deploy.execute.behat}" arg2="true"/>
+                <then>
+                    <behat bundle="frontend"/>
+                    <behat bundle="backend"/>
+                </then>
+            </if>
+            <if>
+                <equals arg1="${deploy.execute.codereport}" arg2="true"/>
+                <then>
+                    <codereport destination="cms"/>
+                </then>
+            </if>
+            <if>
+                <equals arg1="${deploy.execute.phpdoc}" arg2="true"/>
+                <then>
+                    <antcall target="phpdoc"/>
+                </then>
+            </if>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="behat">
+        <attribute name="destination" default="cms"/>
+        <attribute name="bundle" default=""/>
+        <sequential>
+            <copy overwrite="true" file="${basedir}/cms/behat-template.yml" tofile="@{destination}/behat.yml">
+                <filterset filtersfile="${parameters-file-path}"/>
+            </copy>
+            <replace file="@{destination}/behat.yml" token="@file_path@" value="${basedir}"/>
+            <antcall target="start-server"/>
+            <echo>ANT DEBUG: Executing behat tests - @{bundle}</echo>
+            <exec executable="php" dir="@{destination}"><arg line="bin/behat -p @{bundle} -f pretty,junit --out ,'${basedir}/test_result/behat'"/></exec>
+            <antcall target="stop-server"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="create.web.dirs">
+        <attribute name="destination" default="cms"/>
+        <sequential>
+            <if>
+                <not>
+                    <available file="@{destination}/web/uploads"/>
+                </not>
+                <then>
+                    <echo>ANT DEBUG: Creating @{destination}/web/uploads dir</echo>
+                    <mkdir dir="@{destination}/web/uploads"/>
+                    <chmod dir="@{destination}/web/uploads" perm="777"/>
+                </then>
+            </if>
+        </sequential>
+    </macrodef>
+
+    <target name="check">
+        <if>
+            <equals arg1="${target}" arg2=""/>
+            <then>
+                <var name="parameters-file-path" value="cms/app/config/parameters.ini"/>
+                <var name="local-build" value="true"/>
+            </then>
+            <else>
+                <var name="parameters-file-path" value="cms/app/config/parameters.${target}.ini"/>
+                <var name="local-build" value="false"/>
+            </else>
+        </if>
+        <property file="${parameters-file-path}"/>
+        <echo>ANT DEBUG: Checking ${parameters-file-path} file</echo>
+        <available file="${parameters-file-path}" property="doesPropertyFileExist"/>
+        <fail unless="doesPropertyFileExist" message="The build ${parameters-file-path} file does not exist, can't build."/>
+    </target>
+
+    <target name="clean-test-result-directory">
+        <echo>AND DEBUG: Cleaning test result directory</echo>
+        <delete dir="${basedir}/test_result"/>
+        <mkdir dir="${basedir}/test_result"/>
+    </target>
+
+    <target name="start-server" depends="check">
+        <echo>ANT DEBUG: Starting selenium server</echo>
+        <echo>ANT DEBUG: -browser browserName=${selenium.browser},version=${selenium.browser.version},maxInstances=1</echo>
+        <echo>ANT DEBUG: -port ${selenium.port}</echo>
+        <echo>ANT DEBUG: -log '${basedir}/test_result/selenium-server.log</echo>
+        <java jar="${selenium.jar}" fork="true" spawn="true">
+            <arg line="-browser browserName=${selenium.browser},version=${selenium.browser.version},maxInstances=1"/>
+            <arg line="-timeout 30"/>
+            <arg line="-browserSessionReuse"/>
+            <arg line="-port ${selenium.port}"/>
+            <arg line="-log '${basedir}/test_result/selenium-server.log'"/>
+        </java>
+        <echo>ANT DEBUG: Waiting ${selenium.wait} seconds for selenium server up</echo>
+        <sleep seconds="${selenium.wait}"/>
+   </target>
+
+    <target name="stop-server">
+        <echo>ANT DEBUG: Stopping selenium server</echo>
+        <get taskname="selenium-shutdown"
+            src="http://localhost:${selenium.port}/selenium-server/driver/?cmd=shutDownSeleniumServer"
+            dest="${basedir}/test_result/selenium-server-shutdown.log"
+            ignoreerrors="true"/>
+        <sleep seconds="2"/>
+    </target>
+
+    <!--- ################################ TASKS ############################################################### -->
+
+    <target name="composer" depends="check" description="Update symfony vendor directory">
+        <if>
+            <not>
+                <available file="${basedir}/cms/composer.phar"/>
+            </not>
+            <then>
+                <echo>ANT DEBUG: Downloading composer</echo>
+                <exec executable="curl" dir="cms" output="${basedir}/cms/composer.php"><arg line="-s https://getcomposer.org/installer"/></exec>
+                <exec executable="php" dir="cms"><arg line="composer.php"/></exec>
+                <delete file="${basedir}/cms/composer.php"/>
+            </then>
+            <else>
+                <exec executable="php" dir="cms"><arg line="composer.phar self-update"/></exec>
+            </else>
+        </if>
+        <echo>ANT DEBUG: Updating vendor directory</echo>
+        <exec executable="php" dir="cms"><arg line="composer.phar update"/></exec>
+    </target>
+
+    <target name="fixcs" description="Execute php-cs-fixer">
+        <if>
+            <not>
+                <available file="${basedir}/cms/php-cs-fixer.phar"/>
+            </not>
+            <then>
+                <echo>ANT DEBUG: Downloading php-cs-fixer.phar</echo>
+                <exec executable="curl" dir="cms" output="${basedir}/cms/php-cs-fixer.phar"><arg line="-s http://cs.sensiolabs.org/get/php-cs-fixer.phar"/></exec>
+                <exec executable="php" dir="cms"><arg line="php-cs-fixer.phar self-update"/></exec>
+            </then>
+            <else>
+                <exec executable="php" dir="cms"><arg line="php-cs-fixer.phar self-update"/></exec>
+            </else>
+        </if>
+        <echo>ANT DEBUG: Fixing coding standards</echo>
+        <exec executable="php" dir="cms"><arg line="php-cs-fixer.phar fix ."/></exec>
+    </target>
+
+    <target name="build.db" description="Build database">
+        <build.db env="${env}"/>
+    </target>
+
+    <target name="cc" description="Clear cache">
+        <clear.file.cache env="prod"/>
+        <cc symlink="--symlink" env="dev"/>
+    </target>
+
+    <target name="phpunit" description="Execute PHPUnit test" depends="clean-test-result-directory">
+        <phpunit/>
+    </target>
+
+    <target name="phpcs" description="Check coding standards" depends="clean-test-result-directory">
+        <phpcs debug="${debug}"/>
+    </target>
+
+    <target name="phpmd" description="Create PHPMD report" depends="clean-test-result-directory">
+        <phpmd debug="${debug}"/>
+    </target>
+
+    <target name="phpcpd" description="Find duplicate code using PHPCPD" depends="clean-test-result-directory">
+        <phpcpd debug="${debug}"/>
+    </target>
+
+    <target name="pdepend" description="Calculate software metrics using PHP_Depend" depends="clean-test-result-directory">
+        <pdepend/>
+    </target>
+
+    <target name="phploc" description="Measure project size using PHPLOC" depends="clean-test-result-directory">
+        <phploc/>
+    </target>
+
+    <target name="phpdoc" description="Execute php documentor">
+        <exec executable="phpdoc" dir="cms"><arg line="-c ./app/phpdoc.xml -p --parseprivate --force --defaultpackagename App"/></exec>
+    </target>
+
+    <target name="codereport" description="Generating code report" depends="clean-test-result-directory">
+        <codereport/>
+    </target>
+
+    <target name="build" depends="check, composer">
+        <if>
+            <equals arg1="${build.clear.cache.file}" arg2="true"/>
+            <then>
+                <clear.file.cache env="prod"/>
+            </then>
+        </if>
+        <build env="dev" symlink="--symlink"/>
+    </target>
+
+    <target name="deploy" depends="check, clean-test-result-directory, composer">
+        <deploy destination="${deploy.destination}"/>
+    </target>
+
+    <target name="behat" depends="check, clean-test-result-directory">
+        <if>
+            <equals arg1="${bundle}" arg2=""/>
+            <then>
+                <behat bundle="frontend"/>
+                <behat bundle="backend"/>
+            </then>
+            <else>
+                <behat bundle="${bundle}"/>
+            </else>
+        </if>
+    </target>
+</project>
