@@ -39,7 +39,7 @@ liuggio_stats_d_client:
 #       debug_class: Liuggio\StatsdClient\Sender\SysLogSender # or EchoSender
 #       debug: %kernel.debug%   # use false if you want to disable debugging and shot packet over Socket
         host: localhost
-        port: 8125
+        port: %statsd.port%
 #       protocol: udp
 #       reduce_packet: true
 #       fail_silently: true
