@@ -4,11 +4,11 @@ homepage:
 
 
 cart_put:
-    pattern:  /cart/put/{productID}
+    pattern:  /cart/put
     defaults: { _controller: AppFrontendBundle:Cart:put }
 
 cart_remove:
-    pattern:  /cart/remove/{productID}
+    pattern:  /cart/remove
     defaults: { _controller: AppFrontendBundle:Cart:remove }
 
 cart_clear:

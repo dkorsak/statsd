@@ -1,5 +1,9 @@
 {% extends 'AppFrontendBundle::base.html.twig' %}
 
 {% block body %}
-HOMEPAGE
+
+<a href="{{ path('cart_put') }}">Put</a>
+<a href="{{ path('cart_remove') }}">Remove</a>
+<a href="{{ path('cart_clear') }}">Clear</a>
+
 {% endblock %}
