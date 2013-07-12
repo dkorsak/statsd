@@ -42,15 +42,15 @@ liuggio_stats_d_client:
         port: %statsd.port%
         protocol: udp
         reduce_packet: true
-        fail_silently: true
+        fail_silently: false
     enable_collector: true
     collectors:
-        liuggio_stats_d_client.collector.dbal: 'demo.query'
-        liuggio_stats_d_client.collector.visitor: 'demo.visitor'
-        liuggio_stats_d_client.collector.memory: 'demo.memory'
-        liuggio_stats_d_client.collector.user: 'demo.user'
-        liuggio_stats_d_client.collector.exception: 'demo.exception'
-        liuggio_stats_d_client.collector.time: 'demo.time'
+        liuggio_stats_d_client.collector.dbal: 'aplikacja.demo.query'
+        liuggio_stats_d_client.collector.visitor: 'aplikacja.demo.visitor'
+        liuggio_stats_d_client.collector.memory: 'aplikacja.demo.memory'
+        liuggio_stats_d_client.collector.user: 'aplikacja.demo.user'
+        liuggio_stats_d_client.collector.exception: 'aplikacja.demo.exception'
+        liuggio_stats_d_client.collector.time: 'aplikacja.demo.time'
 
 monolog:
     handlers:
