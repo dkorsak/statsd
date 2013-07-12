@@ -1,3 +1,16 @@
 homepage:
     pattern:  /
     defaults: { _controller: AppFrontendBundle:Homepage:index }
+
+
+cart_put:
+    pattern:  /cart/put/{productID}
+    defaults: { _controller: AppFrontendBundle:Cart:put }
+
+cart_remove:
+    pattern:  /cart/remove/{productID}
+    defaults: { _controller: AppFrontendBundle:Cart:remove }
+
+cart_clear:
+    pattern:  /cart/clear
+    defaults: { _controller: AppFrontendBundle:Cart:clear }
